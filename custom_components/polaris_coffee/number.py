@@ -16,6 +16,7 @@ from .coffeemaker_280 import (
     filter_recipe_settings,
     get_store,
     program_data_index_for_mode,
+    recipe_setting_keys,
 )
 from .common import PolarisCoffeeBaseEntity
 from .const import DEVICEID, DEVPREFIXTOPIC, MQTT_ROOT_TOPIC, NUMBERS, MODEL, SELECTS, PolarisCoffeeNumberEntityDescription
@@ -61,37 +62,25 @@ class PolarisCoffeeNumber(PolarisCoffeeBaseEntity, NumberEntity):
 
     async def async_added_to_hass(self):
         """Subscribe to drink mode changes to update availability and values from program_data."""
-        def update_availability_from_mode(mode_value: int):
-            """Helper to update availability based on a mode value."""
-            if mode_value == 0:
-                self._attr_available = False
-                self._current_mode_value = None
-                return
-            
-            self._current_mode_value = mode_value
+        def update_availability_from_option(drink_mode_key: str):
+            """Update availability from the selected recipe, not live state/mode."""
             select_options = SELECTS[0].options
-            option = next((key for key, value in select_options.items() if json.loads(value)[0]["mode"] == mode_value), None)
-            if option is None:
+            if drink_mode_key not in select_options:
                 self._attr_available = False
                 return
-            
+
             try:
-                coffee_mode = json.loads(select_options[option])[0]
+                coffee_mode = json.loads(select_options[drink_mode_key])[0]
             except (json.JSONDecodeError, IndexError, KeyError):
                 self._attr_available = False
                 return
-            
-            # Determine availability based on drink features
-            available_keys = set()
-            if coffee_mode.get("coffee"):
-                available_keys.update({"amount", "coffee_strength", "preinfusion", "extraction"})
-            if coffee_mode.get("milk"):
-                available_keys.add("pressure")
-            if coffee_mode.get("water"):
-                available_keys.add("tank")
-            
+
+            mode_value = int(coffee_mode["mode"])
+            self._current_mode_value = mode_value
+            get_store(self.hass, self.device_id)["selected_mode"] = mode_value
+            available_keys = recipe_setting_keys(coffee_mode)
             self._attr_available = self.entity_description.key in available_keys
-            
+
             # Update value from recipe if available
             if self._attr_available and self.entity_description.key in ("amount", "pressure", "tank"):
                 store = get_store(self.hass, self.device_id)
@@ -109,19 +98,8 @@ class PolarisCoffeeNumber(PolarisCoffeeBaseEntity, NumberEntity):
             if new_state is None or new_state.state in ("unknown", "unavailable"):
                 return
 
-            # Get the current drink mode from select state
-            drink_mode_key = new_state.state
-            select_options = SELECTS[0].options
-            if drink_mode_key not in select_options:
-                return
-
-            try:
-                mode_value = json.loads(select_options[drink_mode_key])[0].get("mode")
-                if mode_value is not None:
-                    update_availability_from_mode(mode_value)
-                    self.async_write_ha_state()
-            except (json.JSONDecodeError, IndexError, KeyError):
-                pass
+            update_availability_from_option(new_state.state)
+            self.async_write_ha_state()
 
         # Subscribe to mode changes
         mode_entity_id = f"select.{self._entity_prefix}_select_mode_cofeemaker"
@@ -146,7 +124,16 @@ class PolarisCoffeeNumber(PolarisCoffeeBaseEntity, NumberEntity):
                 except ValueError:
                     return
 
-                update_availability_from_mode(mode_value)
+                if mode_value == 0:
+                    return
+
+                option = next(
+                    (key for key, value in SELECTS[0].options.items() if json.loads(value)[0]["mode"] == mode_value),
+                    None,
+                )
+                if option is None:
+                    return
+                update_availability_from_option(option)
                 self.async_write_ha_state()
 
             await mqtt.async_subscribe(self.hass, mode_topic, mode_message_received, 1)
@@ -183,16 +170,22 @@ class PolarisCoffeeNumber(PolarisCoffeeBaseEntity, NumberEntity):
 
             await mqtt.async_subscribe(self.hass, user_topic, user_message_received, 1)
 
-        # Initialize availability from current select state if available
+        # Initialize availability from the selected recipe if available.
         current_state = self.hass.states.get(mode_entity_id)
-        if current_state is not None and current_state.state != "unknown":
+        if current_state is not None and current_state.state not in ("unknown", "unavailable"):
             drink_mode_key = current_state.state
             select_options = SELECTS[0].options
             if drink_mode_key in select_options:
                 try:
                     mode_value = json.loads(select_options[drink_mode_key])[0].get("mode")
                     if mode_value is not None:
-                        update_availability_from_mode(mode_value)
+                        update_availability_from_option(drink_mode_key)
                 except (json.JSONDecodeError, IndexError, KeyError):
                     pass
-
+        else:
+            selected_mode = get_store(self.hass, self.device_id).get("selected_mode")
+            drink_mode_key = next(
+                (key for key, value in SELECTS[0].options.items() if json.loads(value)[0]["mode"] == selected_mode),
+                next(iter(SELECTS[0].options)),
+            )
+            update_availability_from_option(drink_mode_key)

@@ -54,7 +54,7 @@ def get_store(hass, device_id: str) -> dict:
     """Return shared in-memory state for the rev. 280 coffeemaker."""
     domain_data = hass.data.setdefault(DOMAIN, {})
     coffee_data = domain_data.setdefault("coffeemaker_280", {})
-    return coffee_data.setdefault(device_id, {"program_data": {}, "current_user": 0})
+    return coffee_data.setdefault(device_id, {"program_data": {}, "current_user": 0, "selected_mode": None})
 
 
 def program_data_index_for_mode(mode: int) -> int:

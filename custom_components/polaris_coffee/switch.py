@@ -55,8 +55,7 @@ class PolarisCoffeeSwitch(PolarisCoffeeBaseEntity, SwitchEntity):
         def message_received(message):
             payload = str(message.payload).lower()
             if self.entity_description.key == "power":
-                # Machine is on when mode is not 0 (0 means standby)
-                self._attr_is_on = payload != "0"
+                self._attr_is_on = payload in ("01", "1", "03", "3")
             else:
                 self._attr_is_on = payload == str(self.entity_description.payload_on).lower()
             self.async_write_ha_state()
