@@ -17,6 +17,7 @@ from .coffeemaker_280 import (
     decode_recipe,
     filter_recipe_settings,
     get_store,
+    normalize_user,
     program_data_index_for_mode,
 )
 from .common import PolarisCoffeeBaseEntity
@@ -59,8 +60,41 @@ class PolarisCoffeeSelect(PolarisCoffeeBaseEntity, SelectEntity):
         self._entity_prefix = f"polaris_{MODEL.lower().replace('-', '_')}_{slugify(device_id)}"
         self.entity_id = f"{SELECT_DOMAIN}.{self._entity_prefix}_{description.key}"
         self._attr_has_entity_name = True
-        self._attr_options = list(description.options.keys())
+        self._raw_options = description.options
+        self._display_to_value = description.options
+        self._attr_options = list(self._display_to_value.keys())
         self._attr_current_option = self._attr_options[0]
+
+    def _build_current_user_options(self) -> dict[str, str]:
+        store = get_store(self.hass, self.device_id)
+        users_list = store.get("users_list", {})
+        options: dict[str, str] = {}
+
+        for key, value in self._raw_options.items():
+            if self.entity_description.key != "current_user":
+                options[key] = value
+                continue
+
+            try:
+                user_index = int(value)
+            except (TypeError, ValueError):
+                options[key] = value
+                continue
+
+            label = str(user_index)
+            user_name = users_list.get(user_index)
+            if user_name:
+                label = f"{user_index} - {user_name}"
+            options[label] = str(user_index)
+
+        return options
+
+    def _option_for_user(self, user: int) -> str:
+        target = str(normalize_user(user))
+        for option, value in self._display_to_value.items():
+            if str(value) == target:
+                return option
+        return self._attr_options[0]
 
     def key_from_mode(self, mode: int):
         """Return drink key by numeric mode."""
@@ -105,9 +139,11 @@ class PolarisCoffeeSelect(PolarisCoffeeBaseEntity, SelectEntity):
         self.async_write_ha_state()
         if self.entity_description.key == "current_user":
             store = get_store(self.hass, self.device_id)
-            store["current_user"] = int(self.entity_description.options[option])
+            user_value = self._display_to_value.get(option, self._raw_options.get(option))
+            user_index = normalize_user(int(user_value))
+            store["current_user"] = user_index
             if self.entity_description.mqtt_topic_command:
-                mqtt.publish(self.hass, self.entity_description.mqtt_topic_command, self.entity_description.options[option])
+                mqtt.publish(self.hass, self.entity_description.mqtt_topic_command, str(user_index))
             state = self.hass.states.get(f"select.{self._entity_prefix}_select_mode_cofeemaker")
             if state is not None:
                 command_mode = SELECTS[0].options.get(state.state)
@@ -122,6 +158,12 @@ class PolarisCoffeeSelect(PolarisCoffeeBaseEntity, SelectEntity):
 
     async def async_added_to_hass(self):
         """Subscribe to MQTT state."""
+        if self.entity_description.key == "current_user":
+            self._display_to_value = self._build_current_user_options()
+            self._attr_options = list(self._display_to_value.keys())
+            current_user = normalize_user(get_store(self.hass, self.device_id).get("current_user", 1))
+            self._attr_current_option = self._option_for_user(current_user)
+
         if self.entity_description.mqtt_topic_current:
             @callback
             def message_received(message):
@@ -135,12 +177,12 @@ class PolarisCoffeeSelect(PolarisCoffeeBaseEntity, SelectEntity):
                         self.async_write_ha_state()
                         self.hass.async_create_task(self._async_apply_current_drink())
                 elif self.entity_description.key == "current_user":
-                    for key, value in self.entity_description.options.items():
-                        if str(value) == str(payload):
-                            get_store(self.hass, self.device_id)["current_user"] = int(value)
-                            self._attr_current_option = key
-                            self.async_write_ha_state()
-                            break
+                    store = get_store(self.hass, self.device_id)
+                    user_index = normalize_user(int(payload))
+                    store["current_user"] = user_index
+                    option = self._option_for_user(user_index)
+                    self._attr_current_option = option
+                    self.async_write_ha_state()
 
             await mqtt.async_subscribe(self.hass, self.entity_description.mqtt_topic_current, message_received, 1)
 
