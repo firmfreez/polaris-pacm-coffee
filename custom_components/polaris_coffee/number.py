@@ -62,12 +62,18 @@ class PolarisCoffeeNumber(PolarisCoffeeBaseEntity, NumberEntity):
 
     async def async_added_to_hass(self):
         """Subscribe to drink mode changes to update availability and values from program_data."""
+        def option_from_selected_mode() -> str:
+            selected_mode = get_store(self.hass, self.device_id).get("selected_mode")
+            return next(
+                (key for key, value in SELECTS[0].options.items() if json.loads(value)[0]["mode"] == selected_mode),
+                next(iter(SELECTS[0].options)),
+            )
+
         def update_availability_from_option(drink_mode_key: str):
             """Update availability from the selected recipe, not live state/mode."""
             select_options = SELECTS[0].options
             if drink_mode_key not in select_options:
-                self._attr_available = False
-                return
+                drink_mode_key = option_from_selected_mode()
 
             try:
                 coffee_mode = json.loads(select_options[drink_mode_key])[0]
@@ -183,9 +189,4 @@ class PolarisCoffeeNumber(PolarisCoffeeBaseEntity, NumberEntity):
                 except (json.JSONDecodeError, IndexError, KeyError):
                     pass
         else:
-            selected_mode = get_store(self.hass, self.device_id).get("selected_mode")
-            drink_mode_key = next(
-                (key for key, value in SELECTS[0].options.items() if json.loads(value)[0]["mode"] == selected_mode),
-                next(iter(SELECTS[0].options)),
-            )
-            update_availability_from_option(drink_mode_key)
+            update_availability_from_option(option_from_selected_mode())

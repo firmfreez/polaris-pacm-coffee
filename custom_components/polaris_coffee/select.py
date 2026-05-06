@@ -65,6 +65,7 @@ class PolarisCoffeeSelect(PolarisCoffeeBaseEntity, SelectEntity):
         self._display_to_value = description.options
         self._attr_options = list(self._display_to_value.keys())
         self._attr_current_option = self._attr_options[0]
+        self._attr_available = True
 
     def _build_current_user_options(self) -> dict[str, str]:
         store = get_store(self.hass, self.device_id)
@@ -120,28 +121,26 @@ class PolarisCoffeeSelect(PolarisCoffeeBaseEntity, SelectEntity):
         if coffee_mode is not None:
             get_store(self.hass, self.device_id)["selected_mode"] = int(coffee_mode["mode"])
 
+    def _selected_mode_option(self) -> str:
+        """Return the selected drink option from shared numeric mode."""
+        selected_mode = get_store(self.hass, self.device_id).get("selected_mode")
+        return next(
+            (key for key, value in SELECTS[0].options.items() if json.loads(value)[0]["mode"] == selected_mode),
+            next(iter(SELECTS[0].options)),
+        )
+
     def _update_parameter_availability(self, option: str | None = None) -> None:
         """Update parameter selects from the selected drink features."""
         if self.entity_description.key in ("select_mode_cofeemaker", "current_user"):
+            self._attr_available = True
             return
 
-        mode_option = option
-        if mode_option is None:
-            state = self.hass.states.get(f"select.{self._entity_prefix}_select_mode_cofeemaker")
-            mode_option = state.state if state is not None else None
-        if mode_option is None or mode_option not in SELECTS[0].options:
-            selected_mode = get_store(self.hass, self.device_id).get("selected_mode")
-            mode_option = next(
-                (key for key, value in SELECTS[0].options.items() if json.loads(value)[0]["mode"] == selected_mode),
-                next(iter(SELECTS[0].options)),
-            )
-
-        coffee_mode = self._mode_for_option(mode_option) if mode_option else None
-        if coffee_mode is None:
-            self._attr_available = False
-            return
-
-        self._attr_available = self.entity_description.key in recipe_setting_keys(coffee_mode)
+        mode_option = option if option in SELECTS[0].options else self._selected_mode_option()
+        coffee_mode = self._mode_for_option(mode_option)
+        self._attr_available = (
+            coffee_mode is not None
+            and self.entity_description.key in recipe_setting_keys(coffee_mode)
+        )
 
     async def _async_apply_recipe(self, recipe: str, features: dict | None = None) -> None:
         """Apply selected drink recipe to visible controls."""
@@ -175,6 +174,8 @@ class PolarisCoffeeSelect(PolarisCoffeeBaseEntity, SelectEntity):
 
     async def async_select_option(self, option: str) -> None:
         """Select option."""
+        if self.entity_description.key == "select_mode_cofeemaker":
+            self._remember_selected_mode(option)
         self._attr_current_option = option
         self.async_write_ha_state()
         if self.entity_description.key == "current_user":
@@ -194,7 +195,6 @@ class PolarisCoffeeSelect(PolarisCoffeeBaseEntity, SelectEntity):
                         await self._async_apply_recipe(recipe, coffee_mode)
             return
         if self.entity_description.key == "select_mode_cofeemaker":
-            self._remember_selected_mode(option)
             await self._async_apply_current_drink()
 
     async def async_added_to_hass(self):
