@@ -45,6 +45,7 @@ class PolarisCoffeeNumberEntityDescription(NumberEntityDescription):
     """Number description with MQTT topics."""
 
     native_value: int | None = None
+    available: bool = True
 
 
 @dataclass

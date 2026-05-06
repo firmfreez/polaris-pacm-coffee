@@ -2,15 +2,22 @@
 from __future__ import annotations
 
 import copy
+import json
 
 from homeassistant.components.number import DOMAIN as NUMBER_DOMAIN, NumberEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import slugify
 
+from .coffeemaker_280 import (
+    decode_recipe,
+    filter_recipe_settings,
+    get_store,
+    program_data_index_for_mode,
+)
 from .common import PolarisCoffeeBaseEntity
-from .const import DEVICEID, DEVPREFIXTOPIC, MQTT_ROOT_TOPIC, NUMBERS, MODEL, PolarisCoffeeNumberEntityDescription
+from .const import DEVICEID, DEVPREFIXTOPIC, MQTT_ROOT_TOPIC, NUMBERS, MODEL, SELECTS, PolarisCoffeeNumberEntityDescription
 
 
 async def async_setup_entry(hass: HomeAssistant, config: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
@@ -43,8 +50,66 @@ class PolarisCoffeeNumber(PolarisCoffeeBaseEntity, NumberEntity):
         self.entity_id = f"{NUMBER_DOMAIN}.polaris_{MODEL.lower().replace('-', '_')}_{slugify(device_id)}_{description.key}"
         self._attr_has_entity_name = True
         self._attr_native_value = description.native_value
+        self._attr_available = description.available
+        self._entity_prefix = f"polaris_{MODEL.lower().replace('-', '_')}_{slugify(device_id)}"
 
-    def set_native_value(self, value: float) -> None:
+    async def async_set_native_value(self, value: float) -> None:
         """Update local config value."""
         self._attr_native_value = int(value)
         self.async_write_ha_state()
+
+    async def async_added_to_hass(self):
+        """Subscribe to drink mode changes to update availability and values from program_data."""
+        @callback
+        def on_mode_changed(event):
+            """Handle drink mode changes."""
+            new_state = event.data.get("new_state")
+            if new_state is None or new_state.state in ("unknown", "unavailable"):
+                return
+
+            # Get the current drink mode
+            drink_mode_key = new_state.state
+            select_options = SELECTS[0].options
+            if drink_mode_key not in select_options:
+                return
+
+            # Parse the drink mode to get features
+            try:
+                coffee_mode = json.loads(select_options[drink_mode_key])[0]
+            except (json.JSONDecodeError, IndexError, KeyError):
+                return
+
+            # Determine if this field is available for the current drink
+            features = coffee_mode
+            available_keys = set()
+            if features.get("coffee"):
+                available_keys.update({"amount", "coffee_strength", "preinfusion", "extraction"})
+            if features.get("milk"):
+                available_keys.add("pressure")
+            if features.get("water"):
+                available_keys.add("tank")
+            available_keys.add("coffee_temperature")
+
+            # Update availability
+            self._attr_available = self.entity_description.key in available_keys
+            
+            # Update value from the recipe if available
+            if self._attr_available and self.entity_description.key in ("amount", "pressure", "tank"):
+                store = get_store(self.hass, self.device_id)
+                recipe = store["program_data"].get(program_data_index_for_mode(int(coffee_mode["mode"])))
+                if recipe:
+                    settings = decode_recipe(recipe, store.get("current_user", 1))
+                    filtered_settings = filter_recipe_settings(settings, coffee_mode)
+                    if self.entity_description.key in filtered_settings:
+                        self._attr_native_value = int(filtered_settings[self.entity_description.key])
+
+            self.async_write_ha_state()
+
+        # Subscribe to mode changes
+        mode_entity_id = f"select.{self._entity_prefix}_select_mode_cofeemaker"
+        self.async_on_remove(
+            self.hass.helpers.event.async_track_state_change_event(
+                [mode_entity_id],
+                on_mode_changed,
+            )
+        )
