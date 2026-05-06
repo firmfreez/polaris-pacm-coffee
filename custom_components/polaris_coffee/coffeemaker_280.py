@@ -14,7 +14,7 @@ OFFSET_EXTRACTION = 55
 OFFSET_HOT_WATER = 61
 OFFSET_COFFEE_STRENGTH = 67
 
-MAX_USER_INDEX = 6
+MAX_USER_INDEX = 5
 
 TEMPERATURE_TO_BYTE = {
     "low": 1,
@@ -54,7 +54,7 @@ def get_store(hass, device_id: str) -> dict:
     """Return shared in-memory state for the rev. 280 coffeemaker."""
     domain_data = hass.data.setdefault(DOMAIN, {})
     coffee_data = domain_data.setdefault("coffeemaker_280", {})
-    return coffee_data.setdefault(device_id, {"program_data": {}, "current_user": 1})
+    return coffee_data.setdefault(device_id, {"program_data": {}, "current_user": 0})
 
 
 def program_data_index_for_mode(mode: int) -> int:
@@ -67,13 +67,13 @@ def normalize_user(user: int | str | None) -> int:
     try:
         user_index = int(user)
     except (TypeError, ValueError):
-        user_index = 1
-    return max(1, min(user_index, MAX_USER_INDEX))
+        user_index = 0
+    return max(0, min(user_index, MAX_USER_INDEX))
 
 
 def user_offset(base_offset: int, user: int | str | None, step: int = 1) -> int:
     """Return the offset for a user-specific recipe field."""
-    return base_offset + ((normalize_user(user) - 1) * step)
+    return base_offset + (normalize_user(user) * step)
 
 
 def read_byte(recipe: str, offset: int, default: int = 0) -> int:
@@ -97,7 +97,7 @@ def write_byte(recipe: str, offset: int, value: int) -> str:
     return f"{recipe[:start]}{int(value) & 0xFF:02x}{recipe[end:]}"
 
 
-def decode_recipe(recipe: str, user: int | str | None = 1) -> dict:
+def decode_recipe(recipe: str, user: int | str | None = 0) -> dict:
     """Decode known user-editable fields from a rev. 280 recipe."""
     temperature_byte = read_byte(recipe, user_offset(OFFSET_TEMPERATURE, user, 2), 2)
     preinfusion_byte = read_byte(recipe, user_offset(OFFSET_PREINFUSION, user, 4), 0)
@@ -115,7 +115,7 @@ def decode_recipe(recipe: str, user: int | str | None = 1) -> dict:
     }
 
 
-def encode_recipe(recipe: str, settings: dict, user: int | str | None = 1) -> str:
+def encode_recipe(recipe: str, settings: dict, user: int | str | None = 0) -> str:
     """Apply known user-editable fields to a rev. 280 recipe."""
     result = recipe
 

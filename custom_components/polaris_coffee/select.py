@@ -106,7 +106,7 @@ class PolarisCoffeeSelect(PolarisCoffeeBaseEntity, SelectEntity):
     async def _async_apply_recipe(self, recipe: str, features: dict | None = None) -> None:
         """Apply selected drink recipe to visible controls."""
         store = get_store(self.hass, self.device_id)
-        settings = filter_recipe_settings(decode_recipe(recipe, store.get("current_user", 1)), features)
+        settings = filter_recipe_settings(decode_recipe(recipe, store.get("current_user", 0)), features)
         base_entity = self._entity_prefix
 
         for key in ("amount", "pressure", "tank"):
@@ -161,7 +161,7 @@ class PolarisCoffeeSelect(PolarisCoffeeBaseEntity, SelectEntity):
         if self.entity_description.key == "current_user":
             self._display_to_value = self._build_current_user_options()
             self._attr_options = list(self._display_to_value.keys())
-            current_user = normalize_user(get_store(self.hass, self.device_id).get("current_user", 1))
+            current_user = normalize_user(get_store(self.hass, self.device_id).get("current_user", 0))
             self._attr_current_option = self._option_for_user(current_user)
 
         if self.entity_description.mqtt_topic_current:

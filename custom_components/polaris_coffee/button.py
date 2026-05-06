@@ -79,7 +79,7 @@ class PolarisCoffeeButton(PolarisCoffeeBaseEntity, ButtonEntity):
             "extraction": self._get_state("select", "extraction", "standard"),
             "coffee_temperature": self._get_state("select", "coffee_temperature", "medium"),
         }
-        recipe = encode_recipe(original_recipe, filter_recipe_settings(settings, coffee_mode), store.get("current_user", 1))
+        recipe = encode_recipe(original_recipe, filter_recipe_settings(settings, coffee_mode), store.get("current_user", 0))
 
         mqtt.publish(self.hass, f"{self.mqtt_root}/{self.device_prefix_topic}/control/program_data/{recipe_index}", recipe)
         mqtt.publish(self.hass, self.entity_description.mqtt_topic_command + "mode", mode)

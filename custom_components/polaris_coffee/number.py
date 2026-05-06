@@ -4,6 +4,7 @@ from __future__ import annotations
 import copy
 import json
 
+from homeassistant.components import mqtt
 from homeassistant.components.number import DOMAIN as NUMBER_DOMAIN, NumberEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
@@ -76,7 +77,9 @@ class PolarisCoffeeNumber(PolarisCoffeeBaseEntity, NumberEntity):
             # Parse the drink mode to get features
             try:
                 coffee_mode = json.loads(select_options[drink_mode_key])[0]
+                self._current_mode_value = coffee_mode.get("mode")
             except (json.JSONDecodeError, IndexError, KeyError):
+                self._current_mode_value = None
                 return
 
             # Determine if this field is available for the current drink
@@ -98,7 +101,7 @@ class PolarisCoffeeNumber(PolarisCoffeeBaseEntity, NumberEntity):
                 store = get_store(self.hass, self.device_id)
                 recipe = store["program_data"].get(program_data_index_for_mode(int(coffee_mode["mode"])))
                 if recipe:
-                    settings = decode_recipe(recipe, store.get("current_user", 1))
+                    settings = decode_recipe(recipe, store.get("current_user", 0))
                     filtered_settings = filter_recipe_settings(settings, coffee_mode)
                     if self.entity_description.key in filtered_settings:
                         self._attr_native_value = int(filtered_settings[self.entity_description.key])
@@ -113,6 +116,85 @@ class PolarisCoffeeNumber(PolarisCoffeeBaseEntity, NumberEntity):
                 on_mode_changed,
             )
         )
+
+        # Subscribe to MQTT mode and current_user topics directly so numbers update reliably.
+        self._current_mode_value: int | None = None
+
+        if SELECTS[0].mqtt_topic_current:
+            mode_topic = f"{self.mqtt_root}/{self.device_prefix_topic}/{SELECTS[0].mqtt_topic_current}"
+
+            @callback
+            def mode_message_received(message):
+                payload = str(message.payload)
+                if payload == "0":
+                    self._attr_available = False
+                    self._current_mode_value = None
+                    self.async_write_ha_state()
+                    return
+
+                try:
+                    mode_value = int(payload)
+                except ValueError:
+                    return
+
+                self._current_mode_value = mode_value
+                select_options = SELECTS[0].options
+                option = next((key for key, value in select_options.items() if json.loads(value)[0]["mode"] == mode_value), None)
+                if option is None:
+                    return
+
+                coffee_mode = json.loads(select_options[option])[0]
+                available_keys = set()
+                if coffee_mode.get("coffee"):
+                    available_keys.update({"amount", "coffee_strength", "preinfusion", "extraction"})
+                if coffee_mode.get("milk"):
+                    available_keys.add("pressure")
+                if coffee_mode.get("water"):
+                    available_keys.add("tank")
+
+                self._attr_available = self.entity_description.key in available_keys
+                if self._attr_available and self.entity_description.key in ("amount", "pressure", "tank"):
+                    store = get_store(self.hass, self.device_id)
+                    recipe = store["program_data"].get(program_data_index_for_mode(mode_value))
+                    if recipe:
+                        settings = decode_recipe(recipe, store.get("current_user", 0))
+                        filtered_settings = filter_recipe_settings(settings, coffee_mode)
+                        if self.entity_description.key in filtered_settings:
+                            self._attr_native_value = int(filtered_settings[self.entity_description.key])
+                self.async_write_ha_state()
+
+            await mqtt.async_subscribe(self.hass, mode_topic, mode_message_received, 1)
+
+        if SELECTS[5].mqtt_topic_current:
+            user_topic = f"{self.mqtt_root}/{self.device_prefix_topic}/{SELECTS[5].mqtt_topic_current}"
+
+            @callback
+            def user_message_received(message):
+                payload = str(message.payload)
+                try:
+                    user_index = int(payload)
+                except ValueError:
+                    return
+
+                if self._current_mode_value is None:
+                    return
+
+                if self._attr_available and self.entity_description.key in ("amount", "pressure", "tank"):
+                    store = get_store(self.hass, self.device_id)
+                    recipe = store["program_data"].get(program_data_index_for_mode(self._current_mode_value))
+                    if recipe:
+                        select_options = SELECTS[0].options
+                        option = next((key for key, value in select_options.items() if json.loads(value)[0]["mode"] == self._current_mode_value), None)
+                        if option is None:
+                            return
+                        coffee_mode = json.loads(select_options[option])[0]
+                        settings = decode_recipe(recipe, user_index)
+                        filtered_settings = filter_recipe_settings(settings, coffee_mode)
+                        if self.entity_description.key in filtered_settings:
+                            self._attr_native_value = int(filtered_settings[self.entity_description.key])
+                        self.async_write_ha_state()
+
+            await mqtt.async_subscribe(self.hass, user_topic, user_message_received, 1)
 
         current_state = self.hass.states.get(mode_entity_id)
         if current_state is not None:
