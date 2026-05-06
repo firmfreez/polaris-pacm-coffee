@@ -128,6 +128,7 @@ NUMBERS = [
         native_step=5,
         native_value=40,
         mode="slider",
+        available=False,
     ),
     PolarisCoffeeNumberEntityDescription(
         key="pressure",
@@ -140,6 +141,7 @@ NUMBERS = [
         native_step=1,
         native_value=30,
         mode="slider",
+        available=False,
     ),
     PolarisCoffeeNumberEntityDescription(
         key="tank",
@@ -152,8 +154,10 @@ NUMBERS = [
         native_step=5,
         native_value=100,
         mode="slider",
+        available=False,
     ),
 ]
+
 
 SELECTS = [
     PolarisCoffeeSelectEntityDescription(
