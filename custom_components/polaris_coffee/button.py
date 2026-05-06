@@ -12,7 +12,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import slugify
 
-from .coffeemaker_280 import encode_recipe, filter_recipe_settings, get_store, program_data_index_for_mode
+from .coffeemaker_280 import DEFAULT_SELECTED_MODE, encode_recipe, filter_recipe_settings, get_store, program_data_index_for_mode
 from .common import PolarisCoffeeBaseEntity
 from .const import BUTTONS, DEVICEID, DEVPREFIXTOPIC, MODEL, MQTT_ROOT_TOPIC, SELECTS, PolarisCoffeeButtonEntityDescription
 
@@ -92,6 +92,9 @@ class PolarisCoffeeButton(PolarisCoffeeBaseEntity, ButtonEntity):
             mqtt.publish(self.hass, self.entity_description.mqtt_topic_command + "mode", "0")
             return
 
-        state_mode = self._get_state("select", "select_mode_cofeemaker")
-        if state_mode:
-            await self._async_start(state_mode)
+        selected_mode = get_store(self.hass, self.device_id).get("selected_mode", DEFAULT_SELECTED_MODE)
+        state_mode = next(
+            (key for key, value in self._select_options.items() if json.loads(value)[0]["mode"] == selected_mode),
+            next(iter(self._select_options)),
+        )
+        await self._async_start(state_mode)

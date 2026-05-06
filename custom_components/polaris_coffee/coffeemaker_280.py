@@ -2,9 +2,11 @@
 from __future__ import annotations
 
 DOMAIN = "polaris_coffee"
+EVENT_SELECTED_MODE_CHANGED = f"{DOMAIN}_selected_mode_changed"
 
 PROGRAM_DATA_FIRST_RECIPE_INDEX = 7
 PROGRAM_DATA_RECIPE_COUNT = 41
+DEFAULT_SELECTED_MODE = 1
 
 OFFSET_TEMPERATURE = 1
 OFFSET_PREINFUSION = 13
@@ -54,7 +56,7 @@ def get_store(hass, device_id: str) -> dict:
     """Return shared in-memory state for the rev. 280 coffeemaker."""
     domain_data = hass.data.setdefault(DOMAIN, {})
     coffee_data = domain_data.setdefault("coffeemaker_280", {})
-    return coffee_data.setdefault(device_id, {"program_data": {}, "current_user": 0, "selected_mode": None})
+    return coffee_data.setdefault(device_id, {"program_data": {}, "current_user": 0, "selected_mode": DEFAULT_SELECTED_MODE})
 
 
 def program_data_index_for_mode(mode: int) -> int:

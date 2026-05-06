@@ -12,6 +12,8 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import slugify
 
 from .coffeemaker_280 import (
+    DEFAULT_SELECTED_MODE,
+    EVENT_SELECTED_MODE_CHANGED,
     PROGRAM_DATA_FIRST_RECIPE_INDEX,
     PROGRAM_DATA_RECIPE_COUNT,
     decode_recipe,
@@ -101,9 +103,25 @@ class PolarisCoffeeSelect(PolarisCoffeeBaseEntity, SelectEntity):
     def key_from_mode(self, mode: int):
         """Return drink key by numeric mode."""
         try:
-            return next(key for key, value in self.entity_description.options.items() if json.loads(value)[0]["mode"] == mode)
-        except StopIteration:
+            return next(key for key, value in SELECTS[0].options.items() if json.loads(value)[0]["mode"] == mode)
+        except (StopIteration, TypeError, ValueError, json.JSONDecodeError, KeyError, IndexError):
             return None
+
+    def _mode_for_key(self, option: str) -> int | None:
+        """Return numeric drink mode for an option key."""
+        coffee_mode = self._mode_for_option(option)
+        if coffee_mode is None:
+            return None
+        return int(coffee_mode["mode"])
+
+    def _features_for_mode(self, mode: int | None) -> dict | None:
+        """Return drink feature metadata by numeric mode."""
+        if mode is None:
+            mode = DEFAULT_SELECTED_MODE
+        option = self.key_from_mode(mode)
+        if option is None:
+            option = self.key_from_mode(DEFAULT_SELECTED_MODE)
+        return self._mode_for_option(option) if option is not None else None
 
     def _mode_for_option(self, option: str) -> dict | None:
         """Return drink feature metadata for a select option."""
@@ -117,16 +135,13 @@ class PolarisCoffeeSelect(PolarisCoffeeBaseEntity, SelectEntity):
 
     def _remember_selected_mode(self, option: str) -> None:
         """Keep selected drink independent from the live state/mode topic."""
-        coffee_mode = self._mode_for_option(option)
-        if coffee_mode is not None:
-            get_store(self.hass, self.device_id)["selected_mode"] = int(coffee_mode["mode"])
-
-    def _selected_mode_option(self) -> str:
-        """Return the selected drink option from shared numeric mode."""
-        selected_mode = get_store(self.hass, self.device_id).get("selected_mode")
-        return next(
-            (key for key, value in SELECTS[0].options.items() if json.loads(value)[0]["mode"] == selected_mode),
-            next(iter(SELECTS[0].options)),
+        mode = self._mode_for_key(option)
+        if mode is None:
+            return
+        get_store(self.hass, self.device_id)["selected_mode"] = mode
+        self.hass.bus.async_fire(
+            EVENT_SELECTED_MODE_CHANGED,
+            {"device_id": self.device_id, "mode": mode},
         )
 
     def _update_parameter_availability(self, option: str | None = None) -> None:
@@ -135,8 +150,8 @@ class PolarisCoffeeSelect(PolarisCoffeeBaseEntity, SelectEntity):
             self._attr_available = True
             return
 
-        mode_option = option if option in SELECTS[0].options else self._selected_mode_option()
-        coffee_mode = self._mode_for_option(mode_option)
+        mode = self._mode_for_key(option) if option in SELECTS[0].options else get_store(self.hass, self.device_id).get("selected_mode")
+        coffee_mode = self._features_for_mode(mode)
         self._attr_available = (
             coffee_mode is not None
             and self.entity_description.key in recipe_setting_keys(coffee_mode)
@@ -185,14 +200,12 @@ class PolarisCoffeeSelect(PolarisCoffeeBaseEntity, SelectEntity):
             store["current_user"] = user_index
             if self.entity_description.mqtt_topic_command:
                 mqtt.publish(self.hass, self.entity_description.mqtt_topic_command, str(user_index))
-            state = self.hass.states.get(f"select.{self._entity_prefix}_select_mode_cofeemaker")
-            if state is not None:
-                command_mode = SELECTS[0].options.get(state.state)
-                if command_mode is not None:
-                    coffee_mode = json.loads(command_mode)[0]
-                    recipe = store["program_data"].get(program_data_index_for_mode(coffee_mode["mode"]))
-                    if recipe:
-                        await self._async_apply_recipe(recipe, coffee_mode)
+            option = self.key_from_mode(store.get("selected_mode", DEFAULT_SELECTED_MODE))
+            if option is not None:
+                coffee_mode = json.loads(SELECTS[0].options[option])[0]
+                recipe = store["program_data"].get(program_data_index_for_mode(coffee_mode["mode"]))
+                if recipe:
+                    await self._async_apply_recipe(recipe, coffee_mode)
             return
         if self.entity_description.key == "select_mode_cofeemaker":
             await self._async_apply_current_drink()
@@ -208,23 +221,21 @@ class PolarisCoffeeSelect(PolarisCoffeeBaseEntity, SelectEntity):
         if self.entity_description.key == "select_mode_cofeemaker":
             self._remember_selected_mode(self._attr_current_option)
         else:
-            mode_entity_id = f"select.{self._entity_prefix}_select_mode_cofeemaker"
-
             @callback
             def on_mode_changed(event):
-                new_state = event.data.get("new_state")
-                if new_state is None or new_state.state in ("unknown", "unavailable"):
+                if event.data.get("device_id") != self.device_id:
                     return
-                self._update_parameter_availability(new_state.state)
+                self._update_parameter_availability(self.key_from_mode(event.data.get("mode")))
                 self.async_write_ha_state()
 
             self.async_on_remove(
-                self.hass.helpers.event.async_track_state_change_event(
-                    [mode_entity_id],
+                self.hass.bus.async_listen(
+                    EVENT_SELECTED_MODE_CHANGED,
                     on_mode_changed,
                 )
             )
             self._update_parameter_availability()
+            self.async_write_ha_state()
 
         if self.entity_description.mqtt_topic_current:
             @callback

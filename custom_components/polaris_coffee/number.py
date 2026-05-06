@@ -12,6 +12,8 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import slugify
 
 from .coffeemaker_280 import (
+    DEFAULT_SELECTED_MODE,
+    EVENT_SELECTED_MODE_CHANGED,
     decode_recipe,
     filter_recipe_settings,
     get_store,
@@ -62,18 +64,18 @@ class PolarisCoffeeNumber(PolarisCoffeeBaseEntity, NumberEntity):
 
     async def async_added_to_hass(self):
         """Subscribe to drink mode changes to update availability and values from program_data."""
-        def option_from_selected_mode() -> str:
-            selected_mode = get_store(self.hass, self.device_id).get("selected_mode")
+        def option_from_mode(mode: int | None = None) -> str:
+            selected_mode = mode if mode is not None else get_store(self.hass, self.device_id).get("selected_mode", DEFAULT_SELECTED_MODE)
             return next(
                 (key for key, value in SELECTS[0].options.items() if json.loads(value)[0]["mode"] == selected_mode),
-                next(iter(SELECTS[0].options)),
+                next(key for key, value in SELECTS[0].options.items() if json.loads(value)[0]["mode"] == DEFAULT_SELECTED_MODE),
             )
 
         def update_availability_from_option(drink_mode_key: str):
             """Update availability from the selected recipe, not live state/mode."""
             select_options = SELECTS[0].options
             if drink_mode_key not in select_options:
-                drink_mode_key = option_from_selected_mode()
+                drink_mode_key = option_from_mode()
 
             try:
                 coffee_mode = json.loads(select_options[drink_mode_key])[0]
@@ -98,21 +100,18 @@ class PolarisCoffeeNumber(PolarisCoffeeBaseEntity, NumberEntity):
                         self._attr_native_value = int(filtered_settings[self.entity_description.key])
 
         @callback
-        def on_mode_changed(event):
-            """Handle drink mode changes from select entity state."""
-            new_state = event.data.get("new_state")
-            if new_state is None or new_state.state in ("unknown", "unavailable"):
+        def on_selected_mode_changed(event):
+            """Handle selected drink mode changes."""
+            if event.data.get("device_id") != self.device_id:
                 return
 
-            update_availability_from_option(new_state.state)
+            update_availability_from_option(option_from_mode(event.data.get("mode")))
             self.async_write_ha_state()
 
-        # Subscribe to mode changes
-        mode_entity_id = f"select.{self._entity_prefix}_select_mode_cofeemaker"
         self.async_on_remove(
-            self.hass.helpers.event.async_track_state_change_event(
-                [mode_entity_id],
-                on_mode_changed,
+            self.hass.bus.async_listen(
+                EVENT_SELECTED_MODE_CHANGED,
+                on_selected_mode_changed,
             )
         )
 
@@ -177,6 +176,7 @@ class PolarisCoffeeNumber(PolarisCoffeeBaseEntity, NumberEntity):
             await mqtt.async_subscribe(self.hass, user_topic, user_message_received, 1)
 
         # Initialize availability from the selected recipe if available.
+        mode_entity_id = f"select.{self._entity_prefix}_select_mode_cofeemaker"
         current_state = self.hass.states.get(mode_entity_id)
         if current_state is not None and current_state.state not in ("unknown", "unavailable"):
             drink_mode_key = current_state.state
@@ -188,5 +188,8 @@ class PolarisCoffeeNumber(PolarisCoffeeBaseEntity, NumberEntity):
                         update_availability_from_option(drink_mode_key)
                 except (json.JSONDecodeError, IndexError, KeyError):
                     pass
+            else:
+                update_availability_from_option(option_from_mode())
         else:
-            update_availability_from_option(option_from_selected_mode())
+            update_availability_from_option(option_from_mode())
+        self.async_write_ha_state()
