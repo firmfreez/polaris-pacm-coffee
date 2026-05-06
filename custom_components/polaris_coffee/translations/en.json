@@ -1,0 +1,74 @@
+{
+  "config": {
+    "abort": {
+      "already_configured": "This coffee machine is already configured.",
+      "unknown_topic": "Unknown MQTT topic.",
+      "unsupported_device": "Only Polaris PACM-2081AC rev 280 is supported."
+    },
+    "step": {
+      "user": {
+        "data": {
+          "DEVICEID": "Coffee machine",
+          "manual": "Set up manually"
+        },
+        "title": "Polaris PACM Coffee MQTT"
+      },
+      "manual": {
+        "data": {
+          "DEVICEID": "MAC or device ID",
+          "MQTT_ROOT_TOPIC": "MQTT root topic",
+          "DEVPREFIXTOPIC": "Device MQTT path"
+        },
+        "description": "For new devices the path is usually the device ID. For old devices it is 280/<id>.",
+        "title": "Manual setup"
+      },
+      "confirm": {
+        "title": "Add coffee machine"
+      }
+    }
+  },
+  "entity": {
+    "switch": {
+      "power_switch": {"name": "Power"},
+      "child_lock_switch": {"name": "Child lock"}
+    },
+    "number": {
+      "coffee_volume": {"name": "Coffee volume"},
+      "milk_foam": {"name": "Milk foam"},
+      "hot_water": {"name": "Hot water"}
+    },
+    "select": {
+      "select_mode_cofeemaker_280": {
+        "name": "Drink"
+      },
+      "coffee_strength": {"name": "Coffee strength"},
+      "preinfusion": {"name": "Preinfusion"},
+      "extraction": {
+        "name": "Extraction",
+        "state": {
+          "standard": "Standard",
+          "strong": "Strong",
+          "extra_strong": "Extra strong"
+        }
+      },
+      "coffee_temperature": {
+        "name": "Temperature",
+        "state": {
+          "low": "Low",
+          "medium": "Medium",
+          "high": "High"
+        }
+      },
+      "current_user": {"name": "User"}
+    },
+    "button": {
+      "button_stop_coffee": {"name": "Stop"},
+      "button_start_coffee": {"name": "Start"}
+    },
+    "binary_sensor": {
+      "available_binary_sensor": {
+        "name": "LAN"
+      }
+    }
+  }
+}

@@ -1,0 +1,141 @@
+{
+  "config": {
+    "abort": {
+      "already_configured": "Эта кофемашина уже настроена.",
+      "unknown_topic": "Неизвестный MQTT topic.",
+      "unsupported_device": "Поддерживается только Polaris PACM-2081AC rev 280."
+    },
+    "step": {
+      "user": {
+        "data": {
+          "DEVICEID": "Кофемашина",
+          "manual": "Настроить вручную"
+        },
+        "title": "Polaris PACM Coffee MQTT"
+      },
+      "manual": {
+        "data": {
+          "DEVICEID": "MAC или ID устройства",
+          "MQTT_ROOT_TOPIC": "Префикс MQTT",
+          "DEVPREFIXTOPIC": "Путь устройства в MQTT"
+        },
+        "description": "Для новых устройств путь обычно равен ID устройства. Для старых - 280/<id>.",
+        "title": "Ручная настройка"
+      },
+      "confirm": {
+        "title": "Добавить кофемашину"
+      }
+    }
+  },
+  "entity": {
+    "switch": {
+      "power_switch": {
+        "name": "Включить"
+      },
+      "child_lock_switch": {
+        "name": "Блокировка"
+      }
+    },
+    "number": {
+      "coffee_volume": {
+        "name": "Объём кофе"
+      },
+      "milk_foam": {
+        "name": "Молочная пена"
+      },
+      "hot_water": {
+        "name": "Горячая вода"
+      }
+    },
+    "select": {
+      "select_mode_cofeemaker_280": {
+        "name": "Напиток",
+        "state": {
+          "hot_espresso": "Эспрессо",
+          "hot_ristretto": "Ристретто",
+          "hot_lungo": "Лунго",
+          "hot_americano": "Американо",
+          "hot_cappuccino": "Капучино",
+          "hot_latte": "Латте",
+          "hot_flat_white": "Флэт уайт",
+          "hot_milk_foam": "Молочная пена",
+          "hot_macchiato": "Макиато",
+          "hot_latte_macchiato": "Латте макиато",
+          "hot_milk_coffee": "Кофе с молоком",
+          "hot_double_espresso": "Двойной эспрессо",
+          "hot_double_cappuccino": "Двойной капучино",
+          "hot_double_latte": "Двойной латте",
+          "hot_double_lungo": "Двойной лунго",
+          "hot_double_macchiato": "Двойной макиато",
+          "hot_green_tea": "Зеленый чай",
+          "hot_black_tea": "Черный чай",
+          "hot_cortado": "Кортадо",
+          "hot_cocoa": "Какао",
+          "hot_water": "Горячая вода",
+          "cold_coffee": "Холодный кофе",
+          "cold_double_espresso": "Двойной эспрессо",
+          "cold_cappuccino": "Капучино",
+          "cold_latte": "Латте",
+          "cold_flat_white": "Флэт уайт",
+          "cold_cortado": "Кортадо",
+          "cold_macchiato": "Макиато",
+          "cold_latte_macchiato": "Латте макиато",
+          "cold_milk_coffee": "Кофе с молоком",
+          "cold_double_cappuccino": "Двойной капучино",
+          "cold_double_latte": "Двойной латте",
+          "cold_double_lungo": "Двойной лунго",
+          "cold_double_macchiato": "Двойной макиато",
+          "takeaway_americano": "Американо",
+          "takeaway_cappuccino": "Капучино",
+          "takeaway_latte": "Латте",
+          "takeaway_flat_white": "Флэт уайт",
+          "takeaway_macchiato": "Макиато",
+          "takeaway_latte_macchiato": "Латте макиато",
+          "takeaway_milk_coffee": "Кофе с молоком"
+        }
+      },
+      "coffee_strength": {
+        "name": "Крепкость кофе"
+      },
+      "preinfusion": {
+        "name": "Предсмачивание"
+      },
+      "extraction": {
+        "name": "Экстракция",
+        "state": {
+          "standard": "Стандартный",
+          "strong": "Крепкий",
+          "extra_strong": "Очень крепкий"
+        }
+      },
+      "coffee_temperature": {
+        "name": "Температура",
+        "state": {
+          "low": "Низкая",
+          "medium": "Средняя",
+          "high": "Высокая"
+        }
+      },
+      "current_user": {
+        "name": "Пользователь"
+      }
+    },
+    "button": {
+      "button_stop_coffee": {
+        "name": "Стоп"
+      },
+      "button_start_coffee": {
+        "name": "Старт"
+      }
+    },
+    "binary_sensor": {
+      "available_binary_sensor": {
+        "name": "Локальная сеть",
+        "state": {
+          "on": "В сети",
+          "off": "Не в сети"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "domain": "polaris_coffee",
+  "name": "Polaris PACM Coffee MQTT",
+  "codeowners": ["@firmfreez"],
+  "config_flow": true,
+  "dependencies": ["mqtt"],
+  "documentation": "https://github.com/firmfreez/polaris-pacm-coffee",
+  "integration_type": "device",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/firmfreez/polaris-pacm-coffee/issues",
+  "mqtt": [
+    "polaris/+/state/mac",
+    "/polaris/+/state/mac",
+    "polaris/+/+/state/mac",
+    "/polaris/+/+/state/mac"
+  ],
+  "version": "0.1.0"
+}

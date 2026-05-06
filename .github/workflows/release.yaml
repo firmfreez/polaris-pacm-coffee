@@ -1,0 +1,45 @@
+name: Build release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate HACS
+        uses: hacs/action@main
+        with:
+          category: integration
+
+      - name: Validate hassfest
+        uses: home-assistant/actions/hassfest@master
+
+      - name: Build package
+        run: |
+          mkdir -p dist/custom_components
+          cp -R custom_components/polaris_coffee dist/custom_components/
+          cd dist
+          zip -r polaris_coffee.zip custom_components
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: polaris_coffee
+          path: dist/polaris_coffee.zip
+
+      - name: Publish GitHub release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/polaris_coffee.zip
+          generate_release_notes: true
