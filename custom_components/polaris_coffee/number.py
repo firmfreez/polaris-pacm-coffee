@@ -113,3 +113,12 @@ class PolarisCoffeeNumber(PolarisCoffeeBaseEntity, NumberEntity):
                 on_mode_changed,
             )
         )
+
+        current_state = self.hass.states.get(mode_entity_id)
+        if current_state is not None:
+            class _Event:
+                pass
+            event = _Event()
+            event.data = {"new_state": current_state}
+            on_mode_changed(event)
+

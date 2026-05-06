@@ -90,8 +90,14 @@ class PolarisCoffeeSelect(PolarisCoffeeBaseEntity, SelectEntity):
                 await self.hass.services.async_call("select", "select_option", {"entity_id": entity_id, "option": settings[key]})
 
     async def _async_apply_current_drink(self) -> None:
-        """Number entities will update themselves via state_change subscription."""
-        pass
+        """Refresh controls for current drink/user."""
+        if self.entity_description.key != "select_mode_cofeemaker":
+            return
+        store = get_store(self.hass, self.device_id)
+        coffee_mode = json.loads(self.entity_description.options[self._attr_current_option])[0]
+        recipe = store["program_data"].get(program_data_index_for_mode(coffee_mode["mode"]))
+        if recipe:
+            await self._async_apply_recipe(recipe, coffee_mode)
 
     async def async_select_option(self, option: str) -> None:
         """Select option."""
@@ -112,7 +118,7 @@ class PolarisCoffeeSelect(PolarisCoffeeBaseEntity, SelectEntity):
                         await self._async_apply_recipe(recipe, coffee_mode)
             return
         if self.entity_description.key == "select_mode_cofeemaker":
-            pass  # Number entities will update themselves via state_change subscription
+            await self._async_apply_current_drink()
 
     async def async_added_to_hass(self):
         """Subscribe to MQTT state."""
@@ -127,6 +133,7 @@ class PolarisCoffeeSelect(PolarisCoffeeBaseEntity, SelectEntity):
                     if option:
                         self._attr_current_option = option
                         self.async_write_ha_state()
+                        self.hass.async_create_task(self._async_apply_current_drink())
                 elif self.entity_description.key == "current_user":
                     for key, value in self.entity_description.options.items():
                         if str(value) == str(payload):
