@@ -45,6 +45,7 @@ class PolarisCoffeeNumberEntityDescription(NumberEntityDescription):
     """Number description with MQTT topics."""
 
     native_value: int | None = None
+    available: bool = True
 
 
 @dataclass
@@ -72,6 +73,7 @@ class PolarisCoffeeBinarySensorEntityDescription(BinarySensorEntityDescription):
 
 
 COFFEEMAKER_280_MODES = {
+    "not_specified": "[{\"mode\": 0, \"coffee\": false, \"milk\": false, \"water\": false}]",
     "hot_espresso": "[{\"mode\": 1, \"coffee\": true, \"milk\": false, \"water\": false}]",
     "hot_ristretto": "[{\"mode\": 2, \"coffee\": true, \"milk\": false, \"water\": false}]",
     "hot_lungo": "[{\"mode\": 3, \"coffee\": true, \"milk\": false, \"water\": false}]",
@@ -127,6 +129,7 @@ NUMBERS = [
         native_step=5,
         native_value=40,
         mode="slider",
+        available=True,
     ),
     PolarisCoffeeNumberEntityDescription(
         key="pressure",
@@ -139,6 +142,7 @@ NUMBERS = [
         native_step=1,
         native_value=30,
         mode="slider",
+        available=True,
     ),
     PolarisCoffeeNumberEntityDescription(
         key="tank",
@@ -151,8 +155,10 @@ NUMBERS = [
         native_step=5,
         native_value=100,
         mode="slider",
+        available=True,
     ),
 ]
+
 
 SELECTS = [
     PolarisCoffeeSelectEntityDescription(
@@ -197,7 +203,7 @@ SELECTS = [
         translation_key="current_user",
         mqtt_topic_current="state/current_user",
         mqtt_topic_command="control/current_user",
-        options={"1": "1", "2": "2", "3": "3", "4": "4", "5": "5", "6": "6"},
+        options={"1": "0", "2": "1", "3": "2", "4": "3", "5": "4", "6": "5"},
         entity_category=EntityCategory.CONFIG,
         icon="mdi:account",
     ),

@@ -53,10 +53,18 @@ class PolarisCoffeeSwitch(PolarisCoffeeBaseEntity, SwitchEntity):
         """Subscribe to current state."""
         @callback
         def message_received(message):
-            self._attr_is_on = str(message.payload).lower() == str(self.entity_description.payload_on).lower()
+            payload = str(message.payload).lower()
+            if self.entity_description.key == "power":
+                self._attr_is_on = payload in ("01", "1", "03", "3")
+            else:
+                self._attr_is_on = payload == str(self.entity_description.payload_on).lower()
             self.async_write_ha_state()
 
         await mqtt.async_subscribe(self.hass, self.entity_description.mqtt_topic_current, message_received, 1)
+
+        # Try to initialize from current state if available (especially for power)
+        if self.entity_description.key == "power":
+            self._attr_available = True
 
     async def async_turn_on(self, **kwargs) -> None:
         """Turn on."""

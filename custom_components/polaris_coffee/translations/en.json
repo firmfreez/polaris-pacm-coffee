@@ -19,7 +19,7 @@
           "MQTT_ROOT_TOPIC": "MQTT root topic",
           "DEVPREFIXTOPIC": "Device MQTT path"
         },
-        "description": "For new devices the path is usually the device ID. For old devices it is 280/<id>.",
+        "description": "For new devices the path is usually the device ID. For old devices it is 280/&lt;id&gt;.",
         "title": "Manual setup"
       },
       "confirm": {
@@ -29,20 +29,37 @@
   },
   "entity": {
     "switch": {
-      "power_switch": {"name": "Power"},
-      "child_lock_switch": {"name": "Child lock"}
+      "power_switch": {
+        "name": "Power"
+      },
+      "child_lock_switch": {
+        "name": "Child lock"
+      }
     },
     "number": {
-      "coffee_volume": {"name": "Coffee volume"},
-      "milk_foam": {"name": "Milk foam"},
-      "hot_water": {"name": "Hot water"}
+      "coffee_volume": {
+        "name": "Coffee volume"
+      },
+      "milk_foam": {
+        "name": "Milk foam"
+      },
+      "hot_water": {
+        "name": "Hot water"
+      }
     },
     "select": {
       "select_mode_cofeemaker_280": {
-        "name": "Drink"
+        "name": "Drink",
+        "state": {
+          "not_specified": "Not specified"
+        }
       },
-      "coffee_strength": {"name": "Coffee strength"},
-      "preinfusion": {"name": "Preinfusion"},
+      "coffee_strength": {
+        "name": "Coffee strength"
+      },
+      "preinfusion": {
+        "name": "Preinfusion"
+      },
       "extraction": {
         "name": "Extraction",
         "state": {
@@ -59,11 +76,17 @@
           "high": "High"
         }
       },
-      "current_user": {"name": "User"}
+      "current_user": {
+        "name": "User"
+      }
     },
     "button": {
-      "button_stop_coffee": {"name": "Stop"},
-      "button_start_coffee": {"name": "Start"}
+      "button_stop_coffee": {
+        "name": "Stop"
+      },
+      "button_start_coffee": {
+        "name": "Start"
+      }
     },
     "binary_sensor": {
       "available_binary_sensor": {
