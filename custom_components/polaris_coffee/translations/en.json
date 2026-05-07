@@ -92,6 +92,11 @@
       "available_binary_sensor": {
         "name": "LAN"
       }
+    },
+    "sensor": {
+      "progress_sensor": {
+        "name": "Progress"
+      }
     }
   }
 }

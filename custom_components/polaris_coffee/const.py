@@ -7,8 +7,9 @@ from homeassistant.components.binary_sensor import BinarySensorDeviceClass, Bina
 from homeassistant.components.button import ButtonEntityDescription
 from homeassistant.components.number import NumberDeviceClass, NumberEntityDescription
 from homeassistant.components.select import SelectEntityDescription
+from homeassistant.components.sensor import SensorEntityDescription, SensorStateClass
 from homeassistant.components.switch import SwitchDeviceClass, SwitchEntityDescription
-from homeassistant.const import Platform, UnitOfTime, UnitOfVolume
+from homeassistant.const import PERCENTAGE, Platform, UnitOfTime, UnitOfVolume
 from homeassistant.helpers.entity import EntityCategory
 
 DOMAIN = "polaris_coffee"
@@ -28,6 +29,7 @@ PLATFORMS = [
     Platform.SWITCH,
     Platform.BUTTON,
     Platform.BINARY_SENSOR,
+    Platform.SENSOR,
 ]
 
 
@@ -68,6 +70,13 @@ class PolarisCoffeeButtonEntityDescription(ButtonEntityDescription):
 @dataclass
 class PolarisCoffeeBinarySensorEntityDescription(BinarySensorEntityDescription):
     """Binary sensor description with MQTT topic."""
+
+    mqtt_topic_status: str | None = None
+
+
+@dataclass
+class PolarisCoffeeSensorEntityDescription(SensorEntityDescription):
+    """Sensor description with MQTT topic."""
 
     mqtt_topic_status: str | None = None
 
@@ -254,5 +263,17 @@ BINARY_SENSORS = [
         translation_key="available_binary_sensor",
         mqtt_topic_status="state/error/connection",
         device_class=BinarySensorDeviceClass.CONNECTIVITY,
+    ),
+]
+
+SENSORS = [
+    PolarisCoffeeSensorEntityDescription(
+        key="progress",
+        translation_key="progress_sensor",
+        mqtt_topic_status="state/program_data/6",
+        device_class=None,
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        icon="mdi:progress-clock",
     ),
 ]
